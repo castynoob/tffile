@@ -11,48 +11,110 @@ class MapApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: MapScreen());
+    return MaterialApp(debugShowCheckedModeBanner: false, home: MapAppScreen());
   }
 }
 
-class MapScreen extends StatefulWidget {
-  MapScreen({super.key});
+class MapAppScreen extends StatefulWidget {
+  const MapAppScreen({super.key});
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  State<MapAppScreen> createState() => _MapAppScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
-  Set<Marker> markers = {};
-  Position? position;
+class _MapAppScreenState extends State<MapAppScreen> {
   late GoogleMapController mapController;
 
-  /// Determine the current position of the device.
-  ///
-  /// When the location services are not enabled or permissions
-  /// are denied the `Future` will return an error.
-  Future<bool> checkLocationServicePermission() async {
-    //check location service
+  Set<Polyline> polyline = {};
+  Set<Marker> markers = {};
+  List<LatLng> latlng = [];
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    // gotoCurrentLocation();
+  }
+
+  void gotoLocation(LatLng position1, LatLng position2) {
+    // markers.clear();
+    if (markers.isEmpty || markers.length <= 1) {
+      markers.addAll({
+        Marker(
+          markerId: MarkerId('$position1'),
+          position: position1,
+          infoWindow: InfoWindow(title: '$position1'),
+        ),
+        Marker(
+          markerId: MarkerId('$position2'),
+          position: position2,
+          infoWindow: InfoWindow(title: '$position2'),
+        ),
+      });
+      latlng.addAll({position1, position2});
+      polyline.addAll({
+        Polyline(
+          polylineId: PolylineId(position1.toString()),
+          visible: true,
+          //latlng is List<LatLng>
+          points: latlng,
+          color: Colors.blue,
+        ),
+        // Polyline(
+        //   polylineId: PolylineId(position2.toString()),
+        //   visible: true,
+        //   //latlng is List<LatLng>
+        //   points: latlng,
+        //   color: Colors.blue,
+        // ),
+      });
+    } else {
+      polyline.clear();
+      markers.clear();
+      latlng.clear();
+    }
+
+    mapController.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: position2, zoom: 12),
+      ),
+    );
+    setState(() {});
+  }
+
+  // void gotoCurrentLocation() async {
+  //   if (!await checkLocationServicesPermission()) {
+  //     return;
+  //   }
+  //   Geolocator.getPositionStream().listen((geoPosition) {
+  //     gotoLocation(LatLng(geoPosition.latitude, geoPosition.longitude));
+  //   });
+  // }
+
+  Future<bool> checkLocationServicesPermission() async {
+    //check location services
     bool isEnabled = await Geolocator.isLocationServiceEnabled();
     if (!isEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Location service is turned-off. Please enable it in the Settings for the app to work',
+            'Location service is disabled. Please allow it in the Settings for the app to work.',
           ),
         ),
       );
       return false;
     }
+
     //check permissions
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      //request
       permission = await Geolocator.requestPermission();
+      //2nd check
       if (permission == LocationPermission.denied) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Permission to use device\'s location is denied. Please enable it in the Settings',
+              'Permission for accessing location is denied. Please enable it in the Settings',
             ),
           ),
         );
@@ -63,7 +125,7 @@ class _MapScreenState extends State<MapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Permission to use device\'s location is denied. Please enable it in the Settings',
+            'Permission for accessing location is denied. Please enable it in the Settings',
           ),
         ),
       );
@@ -72,59 +134,30 @@ class _MapScreenState extends State<MapScreen> {
     return true;
   }
 
-  void getCurrentLocation() async {
-    if (!await checkLocationServicePermission()) {
-      return;
-    }
-    Geolocator.getPositionStream().listen((position) {
-      gotoLoc(LatLng(position.latitude, position.longitude));
-    });
-  }
-
-  void gotoLoc(LatLng position) {
-    markers.clear();
-    markers.add(
-      Marker(
-        markerId: MarkerId(position.latitude.toString()),
-        position: position,
-      ),
-    );
-    mapController.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: position, zoom: 12),
-      ),
-    );
-    setState(() {});
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    getCurrentLocation();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: GoogleMap(
+          polylines: polyline,
+          onMapCreated: (controller) {
+            mapController = controller;
+          },
+          markers: markers,
           mapType: MapType.normal,
           mapToolbarEnabled: true,
           myLocationButtonEnabled: true,
           myLocationEnabled: true,
           zoomControlsEnabled: true,
-          onMapCreated: (controller) {
-            mapController = controller;
-          },
+          zoomGesturesEnabled: false,
           initialCameraPosition: CameraPosition(
-            target: LatLng(15.978546866181295, 120.57132822449007),
+            target: LatLng(15.98825509379408, 120.57358531970671),
             zoom: 10,
           ),
-          markers: markers,
-          onTap: (Position) {
-            gotoLoc(Position);
-            print(Position.latitude);
-            print(Position.longitude);
+          onTap: (position) {
+            gotoLocation(position, position);
+            print(position.latitude);
+            print(position.longitude);
           },
         ),
       ),
